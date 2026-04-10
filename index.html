@@ -952,8 +952,11 @@ function parseFile(buffer) {
     if (!r || r.length < 18) return null;
     const bc = r[3] ? String(r[3]).trim() : null;
     if (!bc) return null;
-    const dt = r[1] instanceof Date ? r[1] : (r[1] ? new Date(r[1]) : null);
-    if (!dt || isNaN(dt)) return null;
+    // XLSX.js가 날짜를 UTC 자정으로 생성하는 경우 로컬 날짜와 1일 차이 발생
+    // → UTC 기준 날짜를 로컬 자정으로 정규화해서 방지
+    const rawDt = r[1] instanceof Date ? r[1] : (r[1] ? new Date(r[1]) : null);
+    if (!rawDt || isNaN(rawDt)) return null;
+    const dt = new Date(rawDt.getUTCFullYear(), rawDt.getUTCMonth(), rawDt.getUTCDate());
     return {
       store:   r[0] ? String(r[0]).replace('공동판매','').trim() : '기타',
       date:    dt,
@@ -1111,6 +1114,7 @@ function fmtDate(d) {
   if (!d) return '';
   const dt = d instanceof Date ? d : new Date(d);
   if (isNaN(dt)) return '';
+  // 로컬 날짜 기준으로 표시 (parseFile에서 UTC→로컬 정규화 완료)
   return `${dt.getMonth()+1}/${String(dt.getDate()).padStart(2,'0')}`;
 }
 
