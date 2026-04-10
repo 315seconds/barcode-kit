@@ -752,7 +752,7 @@ function startOAuth() {
   // App key 확인
   if (!S.appKey) {
     document.getElementById('dbxLoginWrap').classList.add('hidden');
-    document.getElementById('dbxAppKeyWrap').classList.remove('hidden');
+    // App key 입력란은 항상 표시돼 있음 (dbxAppKeyWrap1)
     return;
   }
   launchOAuth();
@@ -763,7 +763,7 @@ function saveAppKeyAndLogin() {
   if (!key) { toast('App key를 입력해주세요','err'); return; }
   S.appKey = key;
   localStorage.setItem('miy_app_key', key);
-  document.getElementById('dbxAppKeyWrap').classList.add('hidden');
+  // App key 입력란 정리 불필요
   document.getElementById('dbxLoginWrap').classList.remove('hidden');
   launchOAuth();
 }
