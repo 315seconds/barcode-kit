@@ -418,6 +418,26 @@
       <button class="btn btn-ghost btn-sm" onclick="disconnectDropbox()">연결 해제</button>
     </div>
 
+    <!-- 팀원 공유용 토큰 (연결된 상태에서만 표시) -->
+    <div id="dbxTokenCopyWrap" class="hidden mt8" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;">📋 팀원 공유용 토큰</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px;">아래 두 값을 팀원에게 공유하세요. 팀원은 "팀원 입력" 탭에 붙여넣으면 돼요.</div>
+      <div style="margin-bottom:6px;">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">App key</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <code id="showAppKey" style="font-size:11px;color:var(--accent);background:var(--surface3);padding:4px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></code>
+          <button class="btn btn-ghost btn-xs" onclick="copyText('showAppKey')">복사</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Refresh Token</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <code id="showRefreshToken" style="font-size:11px;color:var(--accent);background:var(--surface3);padding:4px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></code>
+          <button class="btn btn-ghost btn-xs" onclick="copyText('showRefreshToken')">복사</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 미연결 상태 -->
     <div id="dbxLoginWrap" class="mt8">
       <!-- 탭 -->
@@ -456,25 +476,6 @@
         </div>
       </div>
 
-      <!-- 연결 후: Refresh Token 복사 안내 (관리자용) -->
-      <div id="dbxTokenCopyWrap" class="hidden" style="margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;">
-        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;">📋 팀원 공유용 토큰</div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;">아래 두 값을 팀원에게 공유하세요. 팀원은 "팀원 입력" 탭에 붙여넣으면 돼요.</div>
-        <div style="margin-bottom:6px;">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">App key</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <code id="showAppKey" style="font-size:11px;color:var(--accent);background:var(--surface3);padding:4px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></code>
-            <button class="btn btn-ghost btn-xs" onclick="copyText('showAppKey')">복사</button>
-          </div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Refresh Token</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <code id="showRefreshToken" style="font-size:11px;color:var(--accent);background:var(--surface3);padding:4px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></code>
-            <button class="btn btn-ghost btn-xs" onclick="copyText('showRefreshToken')">복사</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- 연도 설정 -->
@@ -877,6 +878,9 @@ function disconnectDropbox() {
   S.connected = false;
   setBadge(false);
   updateSettingsUI(false);
+  // 토큰 박스 숨기기
+  const wrap = document.getElementById('dbxTokenCopyWrap');
+  if (wrap) wrap.classList.add('hidden');
   show('setupScreen');
   toast('연결이 해제됐어요','');
 }
