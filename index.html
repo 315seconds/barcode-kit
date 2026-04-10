@@ -893,24 +893,40 @@ async function runSearch() {
 
   try {
     const months = [...S.months].sort((a,b)=>a-b);
+    const curMonth = new Date().getMonth() + 1;
     const allSales = [];
     let latestStock = [];
-    const latestM = Math.max(...months);
 
+    // 판매 데이터: 선택한 월들에서 수집
     for (let i=0; i<months.length; i++) {
       const m = months[i];
-      setLoad(`${m}월 파일 불러오는 중… (${i+1}/${months.length})`);
+      setLoad(`${m}월 판매 데이터 불러오는 중… (${i+1}/${months.length})`);
       const fp = await findMonthFile(m);
-      setLoad(`${m}월 데이터 파싱 중…`);
       const buf = await dbxDownload(fp);
-      const { sales, stock } = parseFile(buf);
+      const { sales } = parseFile(buf);
       allSales.push(...sales);
-      if (m === latestM) latestStock = stock;
+    }
+
+    // 재고 데이터: 항상 현재 월 파일에서 읽기
+    setLoad(`재고 기준: ${curMonth}월 파일 불러오는 중…`);
+    try {
+      const fp = await findMonthFile(curMonth);
+      const buf = await dbxDownload(fp);
+      const { stock } = parseFile(buf);
+      latestStock = stock;
+    } catch(e2) {
+      // 현재 월 파일이 없으면 선택 월 중 가장 최신으로 fallback
+      const latestM = Math.max(...months);
+      setLoad(`${curMonth}월 파일 없음 → ${latestM}월 재고 기준으로 대체 중…`);
+      const fp = await findMonthFile(latestM);
+      const buf = await dbxDownload(fp);
+      const { stock } = parseFile(buf);
+      latestStock = stock;
     }
 
     const a1 = analyze(allSales, latestStock, p1);
     const a2 = S.mode==='compare' ? analyze(allSales, latestStock, p2) : null;
-    S.results = { a1, a2, months, mode: S.mode };
+    S.results = { a1, a2, months, curMonth, mode: S.mode };
     renderResults();
 
   } catch(e) {
@@ -941,7 +957,7 @@ function renderResults() {
     const memo = getMemo(a1.prefix);
     document.getElementById('rTitle').innerHTML =
       `<span class="ptag">${a1.prefix}</span>${memo?' <span style="color:var(--text2);font-weight:400;font-size:14px;">— '+memo+'</span>':''}`;
-    document.getElementById('rSub').textContent = `${yr}년 ${mStr} 분석`;
+    document.getElementById('rSub').textContent = `${yr}년 ${mStr} 판매 분석 · 재고 기준: ${S.results.curMonth}월`;
 
     document.getElementById('singleWrap').classList.remove('hidden');
     document.getElementById('compareWrap').classList.add('hidden');
@@ -950,7 +966,7 @@ function renderResults() {
     const m1 = getMemo(a1.prefix), m2 = getMemo(a2.prefix);
     document.getElementById('rTitle').innerHTML =
       `<span class="ptag">${a1.prefix}</span>${m1?` <span style="font-size:11px;color:var(--text3)">${m1}</span>`:''} <span style="color:var(--text3);font-size:13px;margin:0 6px;">vs</span> <span class="ptag b">${a2.prefix}</span>${m2?` <span style="font-size:11px;color:var(--text3)">${m2}</span>`:''}`;
-    document.getElementById('rSub').textContent = `${yr}년 ${mStr} 비교 분석`;
+    document.getElementById('rSub').textContent = `${yr}년 ${mStr} 판매 비교 분석 · 재고 기준: ${S.results.curMonth}월`;
 
     document.getElementById('singleWrap').classList.add('hidden');
     document.getElementById('compareWrap').classList.remove('hidden');
