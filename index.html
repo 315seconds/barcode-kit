@@ -886,16 +886,14 @@ function updateSettingsUI(connected, name) {
   document.getElementById('dbxConnectedInfo').classList.toggle('hidden', !connected);
   if (connected) {
     document.getElementById('dbxUserName').textContent = name ? `✓ ${name}` : '✓ 연결됨';
-    // 관리자(OAuth)로 연결한 경우 토큰 공유 패널 표시
-    if (S.refreshToken) {
-      const wrap = document.getElementById('dbxTokenCopyWrap');
-      if (wrap) {
-        wrap.classList.remove('hidden');
-        const sk = document.getElementById('showAppKey');
-        const sr = document.getElementById('showRefreshToken');
-        if (sk) sk.textContent = S.appKey;
-        if (sr) sr.textContent = S.refreshToken;
-      }
+    // 연결 방법과 무관하게 항상 토큰 공유 패널 표시
+    const wrap = document.getElementById('dbxTokenCopyWrap');
+    if (wrap && S.refreshToken) {
+      wrap.classList.remove('hidden');
+      const sk = document.getElementById('showAppKey');
+      const sr = document.getElementById('showRefreshToken');
+      if (sk) sk.textContent = S.appKey || '(App key 없음 — 팀원 입력 탭으로 연결한 경우)';
+      if (sr) sr.textContent = S.refreshToken;
     }
   }
 }
@@ -1020,7 +1018,13 @@ function toggleMonth(m) {
 // ══════════════════════════════════════════════════════
 // SETTINGS
 // ══════════════════════════════════════════════════════
-function openSettings()  { document.getElementById('overlay').classList.add('open'); }
+function openSettings() {
+  document.getElementById('overlay').classList.add('open');
+  // 패널 열릴 때 연결 상태 반영
+  if (S.connected && S.refreshToken) {
+    updateSettingsUI(true);
+  }
+}
 function closeSettings() { document.getElementById('overlay').classList.remove('open'); }
 function handleOverlay(e) { if (e.target.id === 'overlay') closeSettings(); }
 
