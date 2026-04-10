@@ -558,53 +558,13 @@
     <div id="singleWrap" class="hidden">
       <div id="sCards" class="cards"></div>
 
-      <div class="chart-sec">
-        <div class="chart-head">
-          일별 판매 추이
-          <div class="chart-tabs">
-            <button class="chart-tab on" onclick="switchTab(this,'count')">수량</button>
-            <button class="chart-tab" onclick="switchTab(this,'amount')">금액</button>
-          </div>
-        </div>
-        <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
-      </div>
-
-      <div class="two-col">
-        <div class="chart-sec">
-          <div class="chart-head">소분류별 현재 재고</div>
-          <div id="catBars"></div>
-        </div>
-        <div class="chart-sec">
-          <div class="chart-head">매장별 판매</div>
-          <div class="chart-wrap sm"><canvas id="storeChart"></canvas></div>
-        </div>
-      </div>
-
-      <div class="table-sec">
-        <div class="table-head">
-          <span class="table-head-title">판매 상세 내역</span>
-          <span class="table-count" id="tCount"></span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>날짜</th><th>바코드</th><th>매장</th><th style="text-align:right">결제금액</th>
-              </tr>
-            </thead>
-            <tbody id="tBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <!-- 사입 분석 섹션 -->
+      <!-- 사입 분석 섹션 (월별차트 + 누적집계) — saip ON시 표시 -->
       <div id="saipSec" class="hidden">
-        <!-- 월별 판매 차트 -->
         <div class="chart-sec" style="margin-bottom:12px;">
           <div class="chart-head">월별 판매 현황 <span class="saip-badge">사입 분석</span></div>
           <div class="chart-wrap"><canvas id="saipMonthChart"></canvas></div>
         </div>
-        <!-- 소분류별 누적 집계 테이블 -->
-        <div class="table-sec">
+        <div class="table-sec" style="margin-bottom:12px;">
           <div class="table-head">
             <span class="table-head-title">소분류별 누적 집계 <span class="saip-badge">전기간</span></span>
             <span class="table-count" id="saipNote"></span>
@@ -623,6 +583,48 @@
               <tbody id="saipBody"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- 일별 판매 추이 -->
+      <div class="chart-sec">
+        <div class="chart-head">
+          일별 판매 추이
+          <div class="chart-tabs">
+            <button class="chart-tab on" onclick="switchTab(this,'count')">수량</button>
+            <button class="chart-tab" onclick="switchTab(this,'amount')">금액</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+      </div>
+
+      <!-- 소분류별 현재 재고 + 매장별 판매 -->
+      <div class="two-col">
+        <div class="chart-sec">
+          <div class="chart-head">소분류별 현재 재고</div>
+          <div id="catBars"></div>
+        </div>
+        <div class="chart-sec">
+          <div class="chart-head">매장별 판매</div>
+          <div class="chart-wrap sm"><canvas id="storeChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- 판매 상세 내역 -->
+      <div class="table-sec">
+        <div class="table-head">
+          <span class="table-head-title">판매 상세 내역</span>
+          <span class="table-count" id="tCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>날짜</th><th>바코드</th><th>매장</th><th style="text-align:right">결제금액</th>
+              </tr>
+            </thead>
+            <tbody id="tBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1033,37 +1035,60 @@ function analyze(allSales, latestStock, prefix) {
 }
 
 
-// 사입 분석: 전기간 판매 + 현재 재고 + 월별 breakdown
-function analyzeSaip(allSalesFull, latestStock, prefix, salesByMonth, months) {
-  const salesFull = byPrefix(allSalesFull, prefix);
-  const stock     = byPrefix(latestStock, prefix);
+// 사입 분석: 해당 월 입고 시트에서 카테고리 매칭 → 훨씬 정확한 분류
+function analyzeSaip(allSalesFull, latestStock, prefix, salesByMonth, stockByMonth, months) {
+  // 월별 바코드→카테고리 맵 구축 (해당 월 입고 시트 기준)
+  const bcCatByMonth = {};
+  months.forEach(m => {
+    const monthStock = stockByMonth[m] || [];
+    bcCatByMonth[m] = {};
+    byPrefix(monthStock, prefix).forEach(r => {
+      bcCatByMonth[m][r.barcode.toLowerCase()] = r.cat;
+    });
+  });
 
-  // 바코드 → 카테고리 맵 (현재 재고 기준)
-  const bcCatMap = {};
-  stock.forEach(r => { bcCatMap[r.barcode.toLowerCase()] = r.cat; });
-
-  // 현재 재고 기준 카테고리별 집계
+  // 현재월 재고 기준 카테고리 맵 (현재 남은 재고 집계)
   const catMap = {};
-  stock.forEach(r => {
+  byPrefix(latestStock, prefix).forEach(r => {
     if (!catMap[r.cat]) catMap[r.cat] = { stock: 0, sold: 0, monthly: {} };
     catMap[r.cat].stock += r.stock;
   });
 
-  // 전기간 판매를 카테고리별로 집계 + 월별 분리
+  // 전기간 판매: 판매된 월의 입고 시트에서 카테고리 찾기
+  // 없으면 다른 월 입고 시트에서 순차 탐색 → 그래도 없으면 '미분류'
+  const salesFull = byPrefix(allSalesFull, prefix);
+  let unknownCount = 0;
+
   salesFull.forEach(r => {
-    const cat = bcCatMap[r.barcode.toLowerCase()] || '기타(완전소진)';
+    const saleMonth = r.date instanceof Date
+      ? r.date.getMonth()+1
+      : new Date(r.date).getMonth()+1;
+    const bc = r.barcode.toLowerCase();
+
+    // 1순위: 판매 월의 입고 시트
+    let cat = bcCatByMonth[saleMonth]?.[bc];
+
+    // 2순위: 다른 월 입고 시트 순차 탐색 (이전 월 → 이후 월)
+    if (!cat) {
+      const sortedMonths = [...months].sort((a,b) => Math.abs(a-saleMonth)-Math.abs(b-saleMonth));
+      for (const m of sortedMonths) {
+        if (bcCatByMonth[m]?.[bc]) { cat = bcCatByMonth[m][bc]; break; }
+      }
+    }
+
+    if (!cat) { unknownCount++; cat = '미분류'; }
+
     if (!catMap[cat]) catMap[cat] = { stock: 0, sold: 0, monthly: {} };
     catMap[cat].sold += r.qty;
-    // 월별 breakdown
-    const m = r.date instanceof Date ? r.date.getMonth()+1 : new Date(r.date).getMonth()+1;
-    catMap[cat].monthly[m] = (catMap[cat].monthly[m] || 0) + r.qty;
+    if (!catMap[cat].monthly[saleMonth]) catMap[cat].monthly[saleMonth] = 0;
+    catMap[cat].monthly[saleMonth] += r.qty;
   });
 
   const rows = Object.entries(catMap).map(([cat, v]) => {
     const total = v.stock + v.sold;
     const rate  = total > 0 ? (v.sold / total * 100).toFixed(1) : '0.0';
     return { cat, total, sold: v.sold, stock: v.stock, rate,
-      monthly: v.monthly, isUnknown: cat === '기타(완전소진)' };
+      monthly: v.monthly, isUnknown: cat === '미분류' };
   }).sort((a,b) => b.total - a.total);
 
   const grandTotal = rows.reduce((s,r) => s + r.total, 0);
@@ -1079,7 +1104,7 @@ function analyzeSaip(allSalesFull, latestStock, prefix, salesByMonth, months) {
     if (monthlyTotal[m] !== undefined) monthlyTotal[m] += r.qty;
   });
 
-  return { rows, grandTotal, grandSold, grandStock, grandRate, months, monthlyTotal };
+  return { rows, grandTotal, grandSold, grandStock, grandRate, months, monthlyTotal, unknownCount };
 }
 
 function fmtDate(d) {
@@ -1110,7 +1135,8 @@ async function runSearch() {
     let latestStock = [];
 
     // 판매 데이터 로딩 (saip ON이면 이미 전체월이 months에 포함돼 있음)
-    const salesByMonth = {};  // month → sales[] (사입 분석용 월별 분리)
+    const salesByMonth = {};  // month → sales[]
+    const stockByMonth  = {};  // month → stock[] (월별 카테고리 매칭용)
     for (let i=0; i<months.length; i++) {
       const m = months[i];
       setLoad(`${m}월 데이터 불러오는 중… (${i+1}/${months.length})`);
@@ -1119,7 +1145,7 @@ async function runSearch() {
       const { sales, stock } = parseFile(buf);
       allSales.push(...sales);
       salesByMonth[m] = sales;
-      // 현재월 파일이면 재고도 여기서 바로 가져옴
+      stockByMonth[m] = stock;           // 월별 입고 시트도 저장 (카테고리 매칭용)
       if (m === curMonth) latestStock = stock;
     }
 
@@ -1145,8 +1171,8 @@ async function runSearch() {
     let saipData1 = null, saipData2 = null;
     if (S.saip) {
       setLoad('사입 분석 계산 중…');
-      saipData1 = analyzeSaip(allSales, latestStock, p1, salesByMonth, months);
-      if (S.mode === 'compare') saipData2 = analyzeSaip(allSales, latestStock, p2, salesByMonth, months);
+      saipData1 = analyzeSaip(allSales, latestStock, p1, salesByMonth, stockByMonth, months);
+      if (S.mode === 'compare') saipData2 = analyzeSaip(allSales, latestStock, p2, salesByMonth, stockByMonth, months);
     }
 
     const a1 = analyze(allSales, latestStock, p1);
@@ -1295,8 +1321,10 @@ function renderSaipTable(tbodyId, noteId, chartId, saipData, curMonth) {
   const { rows, grandTotal, grandSold, grandStock, grandRate, months, monthlyTotal } = saipData;
 
   // note
+  const unknownTxt = saipData.unknownCount > 0
+    ? ` · 카테고리 미확인 ${fmt(saipData.unknownCount)}개 포함` : '';
   document.getElementById(noteId).textContent =
-    `재고 기준 ${curMonth}월 · 총 ${fmt(grandTotal)}개 입고`;
+    `재고 기준 ${curMonth}월 · 총 ${fmt(grandTotal)}개 입고${unknownTxt}`;
 
   // 월별 헤더 (월 컬럼 추가 - 5개 이하일 때만)
   const showMonthCols = months.length <= 6;
