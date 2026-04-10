@@ -335,6 +335,54 @@
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .empty { text-align: center; padding: 30px; color: var(--text3); font-size: 12px; }
+
+    /* ── 사입 분석 ────────────────────────────── */
+    .saip-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; padding: 2px 9px; border-radius: 12px;
+      background: rgba(167,139,250,0.12); color: #a78bfa;
+      border: 1px solid rgba(167,139,250,0.28); font-weight: 600;
+      margin-left: 8px; vertical-align: middle;
+    }
+    .saip-note { font-size: 11px; color: var(--text3); margin-bottom: 10px; line-height: 1.7; }
+    .saip-table-wrap { overflow-x: auto; }
+    .saip-table { width: 100%; border-collapse: collapse; }
+    .saip-table th {
+      padding: 7px 14px; text-align: right; font-size: 10px; color: var(--text3);
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border); background: var(--surface2); white-space: nowrap;
+    }
+    .saip-table th:first-child { text-align: left; }
+    .saip-table td { padding: 8px 14px; font-size: 12px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    .saip-table td:first-child { text-align: left; }
+    .saip-table tr:last-child td { border-bottom: none; }
+    .saip-table tr:hover td { background: var(--surface2); }
+    .saip-table .td-total { font-weight: 600; background: var(--surface2); }
+    .saip-rate { display: inline-block; }
+    .saip-rate-bar {
+      display: inline-block; width: 36px; height: 4px;
+      background: var(--surface3); border-radius: 2px; vertical-align: middle;
+      margin-right: 5px; overflow: hidden;
+    }
+    .saip-rate-fill { height: 100%; border-radius: 2px; background: #a78bfa; }
+    .saip-sold-out { color: #a78bfa; font-size: 10px; margin-left: 4px; }
+    .checkbox-wrap {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 10px 14px; border-radius: var(--r);
+      border: 1px solid var(--border); background: var(--surface2);
+      transition: all 0.15s; user-select: none;
+    }
+    .checkbox-wrap:hover { border-color: #a78bfa; background: rgba(167,139,250,0.06); }
+    .checkbox-wrap.checked { border-color: #a78bfa; background: rgba(167,139,250,0.08); }
+    .checkbox-box {
+      width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--border2);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: all 0.15s; background: transparent;
+    }
+    .checkbox-wrap.checked .checkbox-box { background: #a78bfa; border-color: #a78bfa; }
+    .checkbox-label { font-size: 12px; font-weight: 500; color: var(--text2); }
+    .checkbox-wrap.checked .checkbox-label { color: #a78bfa; }
+    .checkbox-sub { font-size: 11px; color: var(--text3); margin-left: auto; }
   </style>
 </head>
 <body>
@@ -450,6 +498,18 @@
         </div>
       </div>
 
+      <div class="divider"></div>
+      <label class="checkbox-wrap" id="saipWrap" onclick="toggleSaip()">
+        <div class="checkbox-box" id="saipBox">
+          <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5" class="hidden" id="saipCheck"><polyline points="2,6 5,9 10,3"/></svg>
+        </div>
+        <div>
+          <div class="checkbox-label" id="saipLabel">사입 분석</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px;">전기간 누적 · 소분류별 총입고 / 판매 / 재고 현황</div>
+        </div>
+        <div class="checkbox-sub" id="saipSub"></div>
+      </label>
+
       <div class="mt16" style="display:flex;justify-content:flex-end;">
         <button id="searchBtn" class="btn btn-primary" onclick="runSearch()" style="min-width:110px;font-size:13px;padding:9px 20px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -525,6 +585,35 @@
           </table>
         </div>
       </div>
+      <!-- 사입 분석 섹션 -->
+      <div id="saipSec" class="hidden">
+        <!-- 월별 판매 차트 -->
+        <div class="chart-sec" style="margin-bottom:12px;">
+          <div class="chart-head">월별 판매 현황 <span class="saip-badge">사입 분석</span></div>
+          <div class="chart-wrap"><canvas id="saipMonthChart"></canvas></div>
+        </div>
+        <!-- 소분류별 누적 집계 테이블 -->
+        <div class="table-sec">
+          <div class="table-head">
+            <span class="table-head-title">소분류별 누적 집계 <span class="saip-badge">전기간</span></span>
+            <span class="table-count" id="saipNote"></span>
+          </div>
+          <div class="saip-table-wrap">
+            <table class="saip-table">
+              <thead>
+                <tr id="saipHead">
+                  <th>소분류</th>
+                  <th>총 입고</th>
+                  <th>누적 판매</th>
+                  <th>현재 재고</th>
+                  <th>판매율</th>
+                </tr>
+              </thead>
+              <tbody id="saipBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- COMPARE RESULTS -->
@@ -561,6 +650,7 @@ const S = {
   months: new Set([new Date().getMonth() + 1]),
   mode: 'single',
   tab: 'count',        // chart tab: count | amount
+  saip: false,
   results: null,
   charts: {},
 };
@@ -588,12 +678,40 @@ function show(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 
+
+// ══════════════════════════════════════════════════════
+// 사입 분석 토글
+// ══════════════════════════════════════════════════════
+function toggleSaip() {
+  S.saip = !S.saip;
+  document.getElementById('saipWrap').classList.toggle('checked', S.saip);
+  document.getElementById('saipCheck').classList.toggle('hidden', !S.saip);
+  const curMonth = new Date().getMonth() + 1;
+
+  if (S.saip) {
+    // 전체 월 자동 선택 + 칩 잠금
+    S._prevMonths = new Set(S.months);
+    for (let m = 1; m <= curMonth; m++) S.months.add(m);
+    document.getElementById('saipSub').textContent = `1~${curMonth}월 전체 자동 선택`;
+  } else {
+    // 이전 선택 복원
+    S.months = S._prevMonths || new Set([curMonth]);
+  }
+  // 칩 UI 갱신 (잠금 처리)
+  buildMonthChips();
+}
+
 function buildMonthChips() {
   const cur = new Date().getMonth() + 1;
+  const locked = S.saip;
   document.getElementById('monthChips').innerHTML =
     Array.from({length: cur}, (_,i) => i+1).map(m => `
-      <button class="chip ${S.months.has(m)?'on':''}" id="mc${m}" onclick="toggleMonth(${m})">${m}월</button>
-    `).join('');
+      <button class="chip ${S.months.has(m)?'on':''} ${locked?'locked':''}"
+        id="mc${m}"
+        onclick="${locked?'':('toggleMonth('+m+')')}"
+        style="${locked?'opacity:0.5;cursor:default;pointer-events:none;':''}"
+      >${m}월</button>
+    `).join('') + (locked ? `<span style="font-size:11px;color:#a78bfa;margin-left:4px;align-self:center;">← 사입 분석 중 자동 전체 선택</span>` : '');
 }
 
 function toggleMonth(m) {
@@ -870,6 +988,56 @@ function analyze(allSales, latestStock, prefix) {
     details: sales.sort((a,b)=>b.date-a.date) };
 }
 
+
+// 사입 분석: 전기간 판매 + 현재 재고 + 월별 breakdown
+function analyzeSaip(allSalesFull, latestStock, prefix, salesByMonth, months) {
+  const salesFull = byPrefix(allSalesFull, prefix);
+  const stock     = byPrefix(latestStock, prefix);
+
+  // 바코드 → 카테고리 맵 (현재 재고 기준)
+  const bcCatMap = {};
+  stock.forEach(r => { bcCatMap[r.barcode.toLowerCase()] = r.cat; });
+
+  // 현재 재고 기준 카테고리별 집계
+  const catMap = {};
+  stock.forEach(r => {
+    if (!catMap[r.cat]) catMap[r.cat] = { stock: 0, sold: 0, monthly: {} };
+    catMap[r.cat].stock += r.stock;
+  });
+
+  // 전기간 판매를 카테고리별로 집계 + 월별 분리
+  salesFull.forEach(r => {
+    const cat = bcCatMap[r.barcode.toLowerCase()] || '기타(완전소진)';
+    if (!catMap[cat]) catMap[cat] = { stock: 0, sold: 0, monthly: {} };
+    catMap[cat].sold += r.qty;
+    // 월별 breakdown
+    const m = r.date instanceof Date ? r.date.getMonth()+1 : new Date(r.date).getMonth()+1;
+    catMap[cat].monthly[m] = (catMap[cat].monthly[m] || 0) + r.qty;
+  });
+
+  const rows = Object.entries(catMap).map(([cat, v]) => {
+    const total = v.stock + v.sold;
+    const rate  = total > 0 ? (v.sold / total * 100).toFixed(1) : '0.0';
+    return { cat, total, sold: v.sold, stock: v.stock, rate,
+      monthly: v.monthly, isUnknown: cat === '기타(완전소진)' };
+  }).sort((a,b) => b.total - a.total);
+
+  const grandTotal = rows.reduce((s,r) => s + r.total, 0);
+  const grandSold  = rows.reduce((s,r) => s + r.sold,  0);
+  const grandStock = rows.reduce((s,r) => s + r.stock, 0);
+  const grandRate  = grandTotal > 0 ? (grandSold / grandTotal * 100).toFixed(1) : '0.0';
+
+  // 월별 전체 판매 집계 (차트용)
+  const monthlyTotal = {};
+  months.forEach(m => { monthlyTotal[m] = 0; });
+  salesFull.forEach(r => {
+    const m = r.date instanceof Date ? r.date.getMonth()+1 : new Date(r.date).getMonth()+1;
+    if (monthlyTotal[m] !== undefined) monthlyTotal[m] += r.qty;
+  });
+
+  return { rows, grandTotal, grandSold, grandStock, grandRate, months, monthlyTotal };
+}
+
 function fmtDate(d) {
   if (!d) return '';
   const dt = d instanceof Date ? d : new Date(d);
@@ -897,36 +1065,49 @@ async function runSearch() {
     const allSales = [];
     let latestStock = [];
 
-    // 판매 데이터: 선택한 월들에서 수집
+    // 판매 데이터 로딩 (saip ON이면 이미 전체월이 months에 포함돼 있음)
+    const salesByMonth = {};  // month → sales[] (사입 분석용 월별 분리)
     for (let i=0; i<months.length; i++) {
       const m = months[i];
-      setLoad(`${m}월 판매 데이터 불러오는 중… (${i+1}/${months.length})`);
+      setLoad(`${m}월 데이터 불러오는 중… (${i+1}/${months.length})`);
       const fp = await findMonthFile(m);
       const buf = await dbxDownload(fp);
-      const { sales } = parseFile(buf);
+      const { sales, stock } = parseFile(buf);
       allSales.push(...sales);
+      salesByMonth[m] = sales;
+      // 현재월 파일이면 재고도 여기서 바로 가져옴
+      if (m === curMonth) latestStock = stock;
     }
 
-    // 재고 데이터: 항상 현재 월 파일에서 읽기
-    setLoad(`재고 기준: ${curMonth}월 파일 불러오는 중…`);
-    try {
-      const fp = await findMonthFile(curMonth);
-      const buf = await dbxDownload(fp);
-      const { stock } = parseFile(buf);
-      latestStock = stock;
-    } catch(e2) {
-      // 현재 월 파일이 없으면 선택 월 중 가장 최신으로 fallback
-      const latestM = Math.max(...months);
-      setLoad(`${curMonth}월 파일 없음 → ${latestM}월 재고 기준으로 대체 중…`);
-      const fp = await findMonthFile(latestM);
-      const buf = await dbxDownload(fp);
-      const { stock } = parseFile(buf);
-      latestStock = stock;
+    // 재고: 현재월 파일이 선택에 없었을 경우 별도 로딩
+    if (!latestStock.length) {
+      setLoad(`재고 기준: ${curMonth}월 파일 불러오는 중…`);
+      try {
+        const fp = await findMonthFile(curMonth);
+        const buf = await dbxDownload(fp);
+        const { stock } = parseFile(buf);
+        latestStock = stock;
+      } catch(e2) {
+        const latestM = Math.max(...months);
+        setLoad(`${curMonth}월 파일 없음 → ${latestM}월 재고로 대체 중…`);
+        const fp = await findMonthFile(latestM);
+        const buf = await dbxDownload(fp);
+        const { stock } = parseFile(buf);
+        latestStock = stock;
+      }
+    }
+
+    // 사입 분석 (saip ON: 전기간 = allSales 그 자체)
+    let saipData1 = null, saipData2 = null;
+    if (S.saip) {
+      setLoad('사입 분석 계산 중…');
+      saipData1 = analyzeSaip(allSales, latestStock, p1, salesByMonth, months);
+      if (S.mode === 'compare') saipData2 = analyzeSaip(allSales, latestStock, p2, salesByMonth, months);
     }
 
     const a1 = analyze(allSales, latestStock, p1);
     const a2 = S.mode==='compare' ? analyze(allSales, latestStock, p2) : null;
-    S.results = { a1, a2, months, curMonth, mode: S.mode };
+    S.results = { a1, a2, months, curMonth, mode: S.mode, saip: S.saip, saipData1, saipData2 };
     renderResults();
 
   } catch(e) {
@@ -998,6 +1179,15 @@ function renderSingle(a) {
   drawCatBars('catBars', a.cats, false);
   drawStoreChart('storeChart', a.stores);
 
+  // 사입 분석 섹션
+  const saipSec = document.getElementById('saipSec');
+  if (S.results.saip && S.results.saipData1) {
+    saipSec.classList.remove('hidden');
+    renderSaipTable('saipBody', 'saipNote', 'saipMonthChart', S.results.saipData1, S.results.curMonth);
+  } else {
+    saipSec.classList.add('hidden');
+  }
+
   const tbody = document.getElementById('tBody');
   const rows = a.details.slice(0, 300);
   document.getElementById('tCount').textContent = `${fmt(a.details.length)}건`;
@@ -1056,6 +1246,98 @@ function renderCompare(a1, a2) {
 }
 
 // ── CAT BARS ───────────────────────────
+
+function renderSaipTable(tbodyId, noteId, chartId, saipData, curMonth) {
+  const { rows, grandTotal, grandSold, grandStock, grandRate, months, monthlyTotal } = saipData;
+
+  // note
+  document.getElementById(noteId).textContent =
+    `재고 기준 ${curMonth}월 · 총 ${fmt(grandTotal)}개 입고`;
+
+  // 월별 헤더 (월 컬럼 추가 - 5개 이하일 때만)
+  const showMonthCols = months.length <= 6;
+  const headEl = document.getElementById('saipHead');
+  if (headEl && showMonthCols) {
+    headEl.innerHTML = `<th>소분류</th><th>총 입고</th>` +
+      months.map(m=>`<th>${m}월 판매</th>`).join('') +
+      `<th>현재 재고</th><th>판매율</th>`;
+  }
+
+  // 테이블 rows
+  const tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = rows.map(r => {
+    const monthCols = showMonthCols
+      ? months.map(m => `<td style="font-family:'DM Mono',monospace;color:var(--text2)">${fmt(r.monthly[m]||0)}</td>`).join('')
+      : '';
+    return `<tr>
+      <td>${r.cat}${r.isUnknown?'<span style="font-size:10px;color:var(--text3);margin-left:4px;">(완전소진)</span>':''}</td>
+      <td style="font-family:'DM Mono',monospace">${fmt(r.total)}</td>
+      ${monthCols}
+      <td style="font-family:'DM Mono',monospace">${fmt(r.stock)}</td>
+      <td>
+        <div class="saip-rate-bar"><div class="saip-rate-fill" style="width:${r.rate}%"></div></div>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:#a78bfa">${r.rate}%</span>
+      </td>
+    </tr>`;
+  }).join('') + (() => {
+    const monthTotals = showMonthCols
+      ? months.map(m => `<td class="td-total" style="font-family:'DM Mono',monospace;color:#a78bfa">${fmt(monthlyTotal[m]||0)}</td>`).join('')
+      : '';
+    return `<tr>
+      <td class="td-total">합계</td>
+      <td class="td-total" style="font-family:'DM Mono',monospace">${fmt(grandTotal)}</td>
+      ${monthTotals}
+      <td class="td-total" style="font-family:'DM Mono',monospace">${fmt(grandStock)}</td>
+      <td class="td-total">
+        <div class="saip-rate-bar"><div class="saip-rate-fill" style="width:${grandRate}%"></div></div>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:#a78bfa;font-weight:600">${grandRate}%</span>
+      </td>
+    </tr>`;
+  })();
+
+  // 월별 판매 차트 (소분류별 스택)
+  if (chartId && document.getElementById(chartId)) {
+    if (S.charts[chartId]) { try{S.charts[chartId].destroy()}catch(e){} }
+    const topCats = rows.filter(r=>!r.isUnknown).slice(0, 8);
+    const palette = ['#f59e0b','#22d3ee','#34d399','#a78bfa','#fb7185','#60a5fa','#f97316','#e879f9'];
+    const datasets = topCats.map((r, i) => ({
+      label: r.cat,
+      data: months.map(m => r.monthly[m] || 0),
+      backgroundColor: palette[i % palette.length].replace(')', ',0.75)').replace('rgb','rgba').replace('#',''),
+      borderRadius: 3,
+    }));
+    // hex to rgba 처리
+    datasets.forEach((d,i) => { d.backgroundColor = palette[i % palette.length] + 'bf'; });
+
+    // 완전소진 행 추가
+    const unknownRow = rows.find(r => r.isUnknown);
+    if (unknownRow) {
+      datasets.push({
+        label: '기타(완전소진)',
+        data: months.map(m => unknownRow.monthly[m] || 0),
+        backgroundColor: '#6b7280bf',
+        borderRadius: 3,
+      });
+    }
+
+    S.charts[chartId] = new Chart(document.getElementById(chartId), {
+      type: 'bar',
+      data: { labels: months.map(m=>`${m}월`), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color:'#9898a8', font:{size:10}, boxWidth:10, padding:8 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.raw)}개` } }
+        },
+        scales: {
+          x: { stacked: true, grid:{color:'#2e2e3a'}, ticks:{color:'#50505f',font:{size:11}} },
+          y: { stacked: true, grid:{color:'#2e2e3a'}, ticks:{color:'#50505f',font:{size:10}} },
+        }
+      }
+    });
+  }
+}
+
 function drawCatBars(id, cats, isB) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -1182,7 +1464,7 @@ function doExport() {
   const { a1, a2, mode } = S.results;
   const wb = XLSX.utils.book_new();
 
-  function addSheets(a, tag='') {
+  function addSheets(a, tag='', saipData=null) {
     const p = a.prefix + tag;
     // 판매 내역
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
@@ -1194,23 +1476,40 @@ function doExport() {
       ['날짜','판매수량','판매금액'],
       ...a.daily.map(([d,v])=>[d, v.count, v.amount])
     ]), `${p}_일별`);
-    // 소분류
+    // 소분류 재고
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['소분류','재고수량','재고금액'],
       ...a.cats.map(([c,v])=>[c, v.stock, v.amt])
-    ]), `${p}_소분류`);
+    ]), `${p}_소분류재고`);
     // 매장
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['매장','판매수량','판매금액'],
       ...a.stores.map(([s,v])=>[s, v.count, v.amount])
     ]), `${p}_매장별`);
+    // 사입 분석
+    if (saipData) {
+      const mths = saipData.months || [];
+      const monthHeaders = mths.map(m=>`${m}월 판매`);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+        ['소분류','총입고(개)', ...monthHeaders, '현재재고(개)','누적판매(개)','누적판매율(%)'],
+        ...saipData.rows.map(r=>[
+          r.cat, r.total,
+          ...mths.map(m => r.monthly[m]||0),
+          r.stock, r.sold, r.rate
+        ]),
+        ['합계', saipData.grandTotal,
+          ...mths.map(m => saipData.monthlyTotal[m]||0),
+          saipData.grandStock, saipData.grandSold, saipData.grandRate
+        ],
+      ]), `${p}_사입분석`);
+    }
   }
 
   if (mode==='single') {
-    addSheets(a1);
+    addSheets(a1, '', S.results.saipData1);
   } else {
-    addSheets(a1);
-    addSheets(a2);
+    addSheets(a1, '', S.results.saipData1);
+    addSheets(a2, '', S.results.saipData2);
     // 비교 요약
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['항목', a1.prefix, a2.prefix],
