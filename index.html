@@ -409,30 +409,72 @@
       <button class="btn btn-ghost btn-sm" onclick="closeSettings()">닫기</button>
     </div>
 
-    <!-- Dropbox OAuth -->
+    <!-- Dropbox 연결 -->
     <div class="label">드랍박스 연결</div>
-    <div class="mt8" id="dbxLoginWrap">
-      <button class="btn btn-primary" onclick="startOAuth()" style="width:100%;justify-content:center;gap:8px;padding:10px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2L1 6.5 6 11l5-4.5L6 2zM18 2l-5 4.5 5 4.5 5-4.5L18 2zM1 17.5L6 22l5-4.5-5-4.5-5 4.5zM18 13l-5 4.5L18 22l5-4.5L18 13z"/></svg>
-        Dropbox로 로그인
-      </button>
-      <div style="margin-top:8px;font-size:11px;color:var(--text3);line-height:1.8;">
-        로그인하면 토큰이 자동으로 관리돼요.<br>
-        토큰은 이 기기에만 저장되며 서버로 전송되지 않아요.
-      </div>
-    </div>
-    <div id="dbxAppKeyWrap" class="hidden">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">
-        앱 키가 필요해요 — <a href="https://www.dropbox.com/developers/apps" target="_blank">Dropbox 개발자 콘솔</a>에서 앱의 <b style="color:var(--text)">App key</b>를 복사하세요.
-      </div>
-      <div class="row">
-        <input id="appKeyInput" type="text" class="input" placeholder="App key (예: abc123xyz)" style="font-family:'DM Mono',monospace;font-size:12px;" />
-        <button class="btn btn-primary" onclick="saveAppKeyAndLogin()" style="white-space:nowrap">로그인</button>
-      </div>
-    </div>
-    <div id="dbxConnectedInfo" class="hidden" style="display:flex;align-items:center;justify-content:space-between;">
+
+    <!-- 연결된 상태 -->
+    <div id="dbxConnectedInfo" class="hidden mt8" style="display:flex;align-items:center;justify-content:space-between;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:var(--r);padding:10px 14px;">
       <div style="font-size:12px;color:var(--success)" id="dbxUserName"></div>
       <button class="btn btn-ghost btn-sm" onclick="disconnectDropbox()">연결 해제</button>
+    </div>
+
+    <!-- 미연결 상태 -->
+    <div id="dbxLoginWrap" class="mt8">
+      <!-- 탭 -->
+      <div class="toggle-wrap" style="width:100%;margin-bottom:12px;">
+        <button class="toggle-btn on" id="tabOAuth" onclick="switchLoginTab('oauth')" style="flex:1;justify-content:center;">관리자 로그인</button>
+        <button class="toggle-btn" id="tabTeam" onclick="switchLoginTab('team')" style="flex:1;justify-content:center;">팀원 입력</button>
+      </div>
+
+      <!-- 관리자: OAuth -->
+      <div id="loginOAuth">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.8;">
+          처음 한 번만 로그인하면 돼요.<br>
+          로그인 후 <b style="color:var(--text)">Refresh Token</b>을 팀원들에게 공유하세요.
+        </div>
+        <div id="dbxAppKeyWrap1">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">
+            <a href="https://www.dropbox.com/developers/apps" target="_blank">Dropbox 개발자 콘솔</a>에서 <b style="color:var(--text)">App key</b> 복사
+          </div>
+          <div class="row">
+            <input id="appKeyInput" type="text" class="input" placeholder="App key" style="font-family:'DM Mono',monospace;font-size:12px;" />
+            <button class="btn btn-primary" onclick="saveAppKeyAndLogin()" style="white-space:nowrap">로그인</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 팀원: App key + Refresh Token 직접 입력 -->
+      <div id="loginTeam" class="hidden">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.8;">
+          관리자에게 받은 <b style="color:var(--text)">App key</b>와<br>
+          <b style="color:var(--text)">Refresh Token</b>을 입력하세요.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <input id="teamAppKey" type="text" class="input" placeholder="App key" style="font-family:'DM Mono',monospace;font-size:12px;" />
+          <input id="teamRefreshToken" type="text" class="input" placeholder="Refresh Token" style="font-family:'DM Mono',monospace;font-size:11px;" />
+          <button class="btn btn-primary" onclick="connectWithTeamCredentials()" style="width:100%;justify-content:center;">연결하기</button>
+        </div>
+      </div>
+
+      <!-- 연결 후: Refresh Token 복사 안내 (관리자용) -->
+      <div id="dbxTokenCopyWrap" class="hidden" style="margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px;">📋 팀원 공유용 토큰</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;">아래 두 값을 팀원에게 공유하세요. 팀원은 "팀원 입력" 탭에 붙여넣으면 돼요.</div>
+        <div style="margin-bottom:6px;">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">App key</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <code id="showAppKey" style="font-size:11px;color:var(--accent);background:var(--surface3);padding:4px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></code>
+            <button class="btn btn-ghost btn-xs" onclick="copyText('showAppKey')">복사</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Refresh Token</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <code id="showRefreshToken" style="font-size:11px;color:var(--accent);background:var(--surface3);padding:4px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></code>
+            <button class="btn btn-ghost btn-xs" onclick="copyText('showRefreshToken')">복사</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 연도 설정 -->
@@ -482,10 +524,13 @@
   <div id="setupScreen" class="setup-center hidden">
     <div class="setup-icon">🔗</div>
     <div class="setup-title">드랍박스 연결이 필요해요</div>
-    <div class="setup-desc">Dropbox 계정으로 로그인하면<br>판매 데이터를 자동으로 불러와요.<br>토큰은 자동으로 갱신돼 만료 걱정 없어요.</div>
+    <div class="setup-desc">
+      <b style="color:var(--text)">관리자</b>라면 Dropbox 계정으로 로그인하고<br>
+      <b style="color:var(--text)">팀원</b>이라면 관리자에게 App key와<br>
+      Refresh Token을 받아서 입력하세요.
+    </div>
     <button class="btn btn-primary" onclick="openSettings()" style="gap:8px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2L1 6.5 6 11l5-4.5L6 2zM18 2l-5 4.5 5 4.5 5-4.5L18 2zM1 17.5L6 22l5-4.5-5-4.5-5 4.5zM18 13l-5 4.5L18 22l5-4.5L18 13z"/></svg>
-      Dropbox로 로그인
+      설정에서 연결하기
     </button>
   </div>
 
@@ -838,9 +883,50 @@ function disconnectDropbox() {
 
 function updateSettingsUI(connected, name) {
   document.getElementById('dbxLoginWrap').classList.toggle('hidden', connected);
-  document.getElementById('dbxAppKeyWrap').classList.add('hidden');
   document.getElementById('dbxConnectedInfo').classList.toggle('hidden', !connected);
-  if (connected && name) document.getElementById('dbxUserName').textContent = '✓ ' + name + '으로 연결됨';
+  if (connected) {
+    document.getElementById('dbxUserName').textContent = name ? `✓ ${name}` : '✓ 연결됨';
+    // 관리자(OAuth)로 연결한 경우 토큰 공유 패널 표시
+    if (S.refreshToken) {
+      const wrap = document.getElementById('dbxTokenCopyWrap');
+      if (wrap) {
+        wrap.classList.remove('hidden');
+        const sk = document.getElementById('showAppKey');
+        const sr = document.getElementById('showRefreshToken');
+        if (sk) sk.textContent = S.appKey;
+        if (sr) sr.textContent = S.refreshToken;
+      }
+    }
+  }
+}
+
+function switchLoginTab(tab) {
+  const isOAuth = tab === 'oauth';
+  document.getElementById('tabOAuth').classList.toggle('on', isOAuth);
+  document.getElementById('tabTeam').classList.toggle('on', !isOAuth);
+  document.getElementById('loginOAuth').classList.toggle('hidden', !isOAuth);
+  document.getElementById('loginTeam').classList.toggle('hidden', isOAuth);
+}
+
+async function connectWithTeamCredentials() {
+  const appKey = document.getElementById('teamAppKey').value.trim();
+  const refreshToken = document.getElementById('teamRefreshToken').value.trim();
+  if (!appKey || !refreshToken) { toast('App key와 Refresh Token을 모두 입력해주세요','err'); return; }
+
+  S.appKey = appKey;
+  S.refreshToken = refreshToken;
+  S.tokenExpiry = 0; // 즉시 refresh 유도
+  localStorage.setItem('miy_app_key', appKey);
+  localStorage.setItem('miy_refresh_token', refreshToken);
+  localStorage.setItem('miy_token_expiry', '0');
+
+  await tryConnect(true);
+}
+
+function copyText(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => toast('복사됐어요!','ok'));
 }
 
 // ── INIT ──────────────────────────────
