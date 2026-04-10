@@ -940,8 +940,27 @@ function normCat(raw) {
   return s;
 }
 
+// Excel 날짜 시리얼 → 로컬 Date 변환 (타임존 무관하게 정확한 날짜 보장)
+// Excel: 1900-01-01 = 1, JS epoch: 1970-01-01
+// 25569 = Jan 1, 1970 기준 Excel 시리얼 값 (1900 윤년 버그 포함)
+function excelSerialToDate(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') {
+    const ms = Math.round((v - 25569) * 86400000);
+    const utc = new Date(ms);
+    // UTC 년/월/일만 꺼내서 로컬 자정으로 재생성 → 타임존 영향 완전 차단
+    return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
+  }
+  if (typeof v === 'string') {
+    const d = new Date(v);
+    return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  return null;
+}
+
 function parseFile(buffer) {
-  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: true });
+  // cellDates:true 대신 raw 숫자로 읽어서 직접 변환 → 타임존 오류 완전 차단
+  const wb = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: false });
 
   /* 전매장매출 — 헤더 row5, 데이터 row6+ */
   const sws = wb.Sheets['전매장매출'];
@@ -952,11 +971,8 @@ function parseFile(buffer) {
     if (!r || r.length < 18) return null;
     const bc = r[3] ? String(r[3]).trim() : null;
     if (!bc) return null;
-    // XLSX.js가 날짜를 UTC 자정으로 생성하는 경우 로컬 날짜와 1일 차이 발생
-    // → UTC 기준 날짜를 로컬 자정으로 정규화해서 방지
-    const rawDt = r[1] instanceof Date ? r[1] : (r[1] ? new Date(r[1]) : null);
-    if (!rawDt || isNaN(rawDt)) return null;
-    const dt = new Date(rawDt.getUTCFullYear(), rawDt.getUTCMonth(), rawDt.getUTCDate());
+    const dt = excelSerialToDate(r[1]);
+    if (!dt || isNaN(dt)) return null;
     return {
       store:   r[0] ? String(r[0]).replace('공동판매','').trim() : '기타',
       date:    dt,
