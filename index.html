@@ -758,7 +758,8 @@ async function findMonthFile(month) {
   const result = await dbxPost('/files/list_folder', { path, recursive: false });
   const file = result.entries.find(e => e['.tag']==='file' && e.name.toLowerCase().endsWith('.xlsx'));
   if (!file) throw new Error(`${month}월 폴더에 xlsx 파일이 없어요`);
-  return file.path_lower;
+  // path_lower 대신 id 사용 → 헤더에 한글 포함 방지 (ISO-8859-1 오류 해결)
+  return file.id;
 }
 
 // ══════════════════════════════════════════════════════
