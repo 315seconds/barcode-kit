@@ -1235,18 +1235,32 @@ function parseFile(buffer) {
   if (!iws) throw new Error('입고 시트를 찾을 수 없어요');
   const iraw = XLSX.utils.sheet_to_json(iws, { header:1, defval:null });
 
+  // 바코드별 이번달 판매수량 집계 (M열 수식 캐시 완전 미사용 — 자동화 저장 시 캐시 소실 대응)
+  const soldQtyMap = {};
+  sales.forEach(r => {
+    const bc = r.barcode.toLowerCase();
+    soldQtyMap[bc] = (soldQtyMap[bc] || 0) + r.qty;
+  });
+
   const stock = iraw.slice(1).map(r => {
     if (!r) return null;
     const bc = r[6] ? String(r[6]).trim() : null;
-    if (!bc) return null;
+    if (!bc || bc === 'undefined' || bc === 'null') return null;
+    const price = Number(r[4]) || 0;
+    // SKU=1 구조이므로 qty는 항상 1
+    // Number(r[5])가 0으로 잘못 읽히는 경우 대비해 최소 1로 보정
+    const qty = Math.max(1, Number(r[5]) || 1);
+    // 이번 달 판매분만 차감 (이전 달 판매분은 이미 입고 시트에서 삭제됨)
+    const soldThisFile = soldQtyMap[bc.toLowerCase()] || 0;
+    const finalStock = Math.max(0, qty - soldThisFile);
     return {
-      name:    r[3] ? String(r[3]) : '',
-      price:   Number(r[4]) || 0,
-      qty:     Number(r[5]) || 0,
-      barcode: bc,
-      cat:     normCat(r[7]),
-      stock:   Math.max(0, Number(r[12]) || 0),
-      stockAmt: Math.max(0, Number(r[13]) || 0),
+      name:     r[3] ? String(r[3]) : '',
+      price,
+      qty,
+      barcode:  bc,
+      cat:      normCat(r[7]),
+      stock:    finalStock,
+      stockAmt: finalStock * price,
     };
   }).filter(Boolean);
 
@@ -1258,7 +1272,15 @@ function parseFile(buffer) {
 // ══════════════════════════════════════════════════════
 function byPrefix(arr, prefix, key='barcode') {
   const p = prefix.toLowerCase();
-  return arr.filter(r => r[key] && String(r[key]).toLowerCase().startsWith(p));
+  return arr.filter(r => {
+    if (!r[key]) return false;
+    const bc = String(r[key]).toLowerCase();
+    if (!bc.startsWith(p)) return false;
+    // prefix 다음 문자가 알파벳이면 다른 prefix → 제외
+    // 예: CR 검색 시 CRA, CRB 등은 제외, CR001은 포함
+    const nextChar = bc[p.length];
+    return !nextChar || !/[a-z]/.test(nextChar);
+  });
 }
 
 function analyze(allSales, latestStock, prefix) {
