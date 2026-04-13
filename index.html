@@ -1221,12 +1221,16 @@ function parseFile(buffer) {
     if (!bc) return null;
     const dt = excelSerialToDate(r[1]);
     if (!dt || isNaN(dt)) return null;
+    const qty    = Number(r[6]) || 0;
+    const amount = Number(r[17]) || 0;
+    // 수량=0 또는 금액=0인 유령 데이터 제외 (키오스크 오류/취소 케이스)
+    if (qty === 0 && amount === 0) return null;
     return {
       store:   r[0] ? String(r[0]).replace('공동판매','').trim() : '기타',
       date:    dt,
       barcode: bc,
-      qty:     Number(r[6]) || 1,
-      amount:  Number(r[17]) || 0,   // R열 = 결제금액
+      qty:     qty || 1,
+      amount,
     };
   }).filter(Boolean);
 
